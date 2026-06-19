@@ -64,7 +64,17 @@ app.set("etag", false);
 
 app.use(express.json());
 
-app.use(cors());
+const allowedOrigins = [
+  "https://sentinel-ai-frontend.vercel.app",
+  "http://localhost:3001",
+];
+
+app.use(
+  cors({
+    origin: allowedOrigins,
+    credentials: true,
+  })
+);
 
 app.use(helmet());
 
