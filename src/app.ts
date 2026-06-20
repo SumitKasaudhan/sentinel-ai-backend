@@ -84,17 +84,27 @@ app.use(morgan("dev"));
 
 app.use(clerkMiddleware());
 
-if (
-  process.env.NODE_ENV === "production"
-) {
-  app.use(
-    rateLimit({
-      windowMs: 15 * 60 * 1000,
-      max: 100,
-    })
-  );
-}
+if (process.env.NODE_ENV === "production") {
+  app.set("trust proxy", 1);
 
+  const checkoutLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 20,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: "Too many requests, please try again later." },
+  });
+  app.use("/api/subscription", checkoutLimiter);
+
+  const generalLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 1000,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: "Too many requests, please try again later." },
+  });
+  app.use(generalLimiter);
+}
 
 
 /*
