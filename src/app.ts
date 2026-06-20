@@ -67,6 +67,8 @@ app.use(express.json());
 const allowedOrigins = [
   "https://sentinel-ai-frontend.vercel.app",
   "http://localhost:3001",
+  "https://sentinel-ai.me",        // ← add karo
+  "https://www.sentinel-ai.me",    // ← add karo
 ];
 
 app.use(
