@@ -80,7 +80,7 @@ export const logPatchActivity = async (
     clerk_id: clerkId,
     action: "patch_deployed",
     description: `${threatsResolved} threat(s) patched via Deploy Patch Engine (Op: ${operationId})`,
-    type: "patch",
+    type: "safe",
     metadata: { operation_id: operationId, threats_resolved: threatsResolved, score_before: scoreBefore, score_after: scoreAfter },
   });
   if (error) console.error("Activity log insert failed:", error.message);
