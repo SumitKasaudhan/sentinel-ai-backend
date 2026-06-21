@@ -49,10 +49,13 @@ export const getDashboardStats = async (clerkId: string) => {
     return Math.min(Math.round((weightedRisk / Math.max(total, 1)) * 20), 100);
   };
 
-  const riskScore = computeRiskScore(threats);
+const riskScore = computeRiskScore(threats);
+
+  // No threats recorded yet = user hasn't scanned. Don't fake a 100 score.
+  const hasScanned = totalThreats > 0;
 
   // Security Score is the inverse of Risk Score (100 = fully secure, 0 = max risk).
-  const securityScore = 100 - riskScore;
+  const securityScore = hasScanned ? 100 - riskScore : null;
 
   // Weekly delta — compare current Security Score against the score
   // computed from threats older than 7 days (a real "baseline").
@@ -61,11 +64,15 @@ export const getDashboardStats = async (clerkId: string) => {
     return now - new Date(item.created_at).getTime() > ONE_WEEK_MS;
   });
 
-  const baselineSecurityScore =
-    baselineThreats.length > 0 ? 100 - computeRiskScore(baselineThreats) : securityScore;
+  const baselineSecurityScore = hasScanned
+    ? (baselineThreats.length > 0 ? 100 - computeRiskScore(baselineThreats) : securityScore)
+    : null;
 
-  const weeklyScoreDelta = Math.round((securityScore - baselineSecurityScore) * 10) / 10;
-
+  const weeklyScoreDelta =
+    hasScanned && securityScore !== null && baselineSecurityScore !== null
+      ? Math.round((securityScore - baselineSecurityScore) * 10) / 10
+      : 0;
+      
   /*
    * Active Devices — distinct, non-null devices seen across this user's
    * threats. Null/empty device values are NOT counted as a device.
