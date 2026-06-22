@@ -72,10 +72,11 @@ router.post(
           .eq("clerk_id", id);
       }
 
-      if (type === "user.deleted") {
-        const { id } = data;
-        await supabase.from("users").delete().eq("clerk_id", id);
-      }
+if (type === "user.deleted") {
+  const { id } = data;
+  await supabase.from("subscriptions").delete().eq("clerk_id", id);
+  await supabase.from("users").delete().eq("clerk_id", id);
+}
 
       return res.status(200).json({ success: true });
     } catch (err) {
