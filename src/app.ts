@@ -31,12 +31,12 @@ import contactRoutes from "./routes/contact.routes";
 import analyticsRoutes from "./modules/analytics/analytics.routes";
 import telemetryRoutes from "./modules/telemetry/telemetry.routes";
 import aiTerminalRoutes from "./modules/ai terminal/ai-terminal.routes";
+import { validateBody, scanTargetSchema } from "./middleware/validate";
 
 const app = express();
 
 app.set("etag", false);
-
-app.use(express.json());
+app.disable("x-powered-by"); // hides "X-Powered-By: Express" header
 
 const allowedOrigins = [
   "https://sentinel-ai-frontend.vercel.app",
@@ -46,29 +46,87 @@ const allowedOrigins = [
 ];
 
 app.use(cors({ origin: allowedOrigins, credentials: true }));
-app.use(helmet());
+
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:", "https://*.supabase.co"],
+        connectSrc: [
+          "'self'",
+          "https://*.clerk.accounts.dev",
+          "https://*.supabase.co",
+        ],
+        frameAncestors: ["'none'"],
+        objectSrc: ["'none'"],
+        upgradeInsecureRequests: [],
+      },
+    },
+    hsts: {
+      maxAge: 31536000,
+      includeSubDomains: true,
+      preload: true,
+    },
+    referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+  })
+);
+
 app.use(morgan("dev"));
+
+// CRITICAL: Clerk webhook route MUST be mounted BEFORE express.json().
+// Svix needs the RAW body to verify signatures.
+app.use("/api", clerkWebhookRoutes);
+
+// JSON parser applies to everything AFTER the webhook route
+app.use(express.json());
+
 app.use(clerkMiddleware());
+
+// Limiters defined OUTSIDE the production-only block so they always
+// exist as variables (avoids "scanLimiter is not defined" crashes in
+// dev mode), but are only attached to routes when NODE_ENV=production.
+const checkoutLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests, please try again later." },
+});
+
+const scanLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Scan rate limit exceeded. Please try again later." },
+});
+
+const aiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 50,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "AI request rate limit exceeded." },
+});
+
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 1000,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests, please try again later." },
+});
 
 if (process.env.NODE_ENV === "production") {
   app.set("trust proxy", 1);
 
-  const checkoutLimiter = rateLimit({
-    windowMs: 60 * 1000,
-    max: 20,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: "Too many requests, please try again later." },
-  });
   app.use("/api/subscription", checkoutLimiter);
-
-  const generalLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 1000,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: "Too many requests, please try again later." },
-  });
+  app.use("/api/scanner", scanLimiter);
+  app.use("/api/scans", scanLimiter);
+  app.use("/api/ai-terminal", aiLimiter);
   app.use(generalLimiter);
 }
 
@@ -76,16 +134,16 @@ app.get("/api/health", (_req, res) => {
   res.status(200).json({ success: true, message: "Backend is running" });
 });
 
-// Clerk webhook — sabse pehle
-app.use("/api", clerkWebhookRoutes);
-
 app.use("/api/users", userModuleRoutes);
 app.use("/api/subscription", subscriptionRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/threats", threatsRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/telemetry", telemetryRoutes);
-app.use("/api/scanner", scannerRoutes);
+
+// SSRF validation now wired BEFORE the scanner route handler runs
+app.use("/api/scanner", validateBody(scanTargetSchema), scannerRoutes);
+
 app.use("/api/reports", reportRoutes);
 app.use("/api/scans", comparisonRoutes);
 app.use("/api/scans", trendRoutes);
