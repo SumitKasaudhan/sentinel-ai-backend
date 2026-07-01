@@ -36,7 +36,7 @@ import { validateBody, scanTargetSchema } from "./middleware/validate";
 const app = express();
 
 app.set("etag", false);
-app.disable("x-powered-by"); // hides "X-Powered-By: Express" header
+app.disable("x-powered-by");
 
 const allowedOrigins = [
   "https://sentinel-ai-frontend.vercel.app",
@@ -76,18 +76,20 @@ app.use(
 
 app.use(morgan("dev"));
 
-// CRITICAL: Clerk webhook route MUST be mounted BEFORE express.json().
-// Svix needs the RAW body to verify signatures.
-app.use("/api", clerkWebhookRoutes);
+// ✅ FIX: Clerk webhook ke liye express.raw() PEHLE lagao
+// Svix ko raw Buffer chahiye — express.json() se pehle aana zaroori hai
+// Webhook route pe SIRF raw body parser lagta hai, baaki routes unaffected
+app.use(
+  "/api/webhooks/clerk",
+  express.raw({ type: "application/json" }),
+  clerkWebhookRoutes
+);
 
-// JSON parser applies to everything AFTER the webhook route
+// JSON parser baaki saare routes ke liye
 app.use(express.json());
 
 app.use(clerkMiddleware());
 
-// Limiters defined OUTSIDE the production-only block so they always
-// exist as variables (avoids "scanLimiter is not defined" crashes in
-// dev mode), but are only attached to routes when NODE_ENV=production.
 const checkoutLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 20,
@@ -141,7 +143,6 @@ app.use("/api/threats", threatsRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/telemetry", telemetryRoutes);
 
-// SSRF validation now wired BEFORE the scanner route handler runs
 app.use("/api/scanner", validateBody(scanTargetSchema), scannerRoutes);
 
 app.use("/api/reports", reportRoutes);
