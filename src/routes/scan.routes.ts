@@ -2,6 +2,8 @@ import { Router } from "express";
 
 import requireAuth from "../middleware/auth.middleware";
 
+import { validateBody, scanTargetSchema } from "../middleware/validate";
+
 import { scanTarget } from "../controllers/scan.controller";
 import {
   getScanHistory,
@@ -22,6 +24,7 @@ router.get("/test", (_req, res) => {
 router.post(
   "/scan",
   requireAuth,
+  validateBody(scanTargetSchema),
   scanTarget
 );
 

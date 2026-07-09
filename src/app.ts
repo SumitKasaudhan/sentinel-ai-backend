@@ -143,7 +143,7 @@ app.use("/api/threats", threatsRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/telemetry", telemetryRoutes);
 
-app.use("/api/scanner", validateBody(scanTargetSchema), scannerRoutes);
+app.use("/api/scanner", scannerRoutes);
 
 app.use("/api/reports", reportRoutes);
 app.use("/api/scans", comparisonRoutes);
