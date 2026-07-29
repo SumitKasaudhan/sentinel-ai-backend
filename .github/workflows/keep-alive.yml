@@ -1,0 +1,16 @@
+name: Supabase Keep Alive
+
+on:
+  schedule:
+    - cron: '0 3 */5 * *'
+  workflow_dispatch:
+
+jobs:
+  ping-supabase:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase to prevent auto-pause
+        run: |
+          curl -X GET "${{ https://buxpitszdkonpaburcuz.supabase.co/rest/v1/ }}/rest/v1/" \
+          -H "apikey: ${{ eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ1eHBpdHN6ZGtvbnBhYnVyY3V6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzNjE0NzksImV4cCI6MjA5NDkzNzQ3OX0.LGjMBUJJ5DDHmCG59AKRBVEL9ci-Hw_xUc3e76CWNPM }}" \
+          -H "Authorization: Bearer ${{ eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ1eHBpdHN6ZGtvbnBhYnVyY3V6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzNjE0NzksImV4cCI6MjA5NDkzNzQ3OX0.LGjMBUJJ5DDHmCG59AKRBVEL9ci-Hw_xUc3e76CWNPM }}"
